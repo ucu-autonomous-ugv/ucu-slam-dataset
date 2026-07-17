@@ -35,11 +35,16 @@ class ProxyWriter:
         )
 
 
+def process_depth_image_aligned(proxy_writer: ProxyWriter, timestamp: int, msg) -> None:
+    msg.header.frame_id = "camera_color"
+    proxy_writer.write(
+        "/cam_depth/image_aligned_raw", timestamp, msg, "sensor_msgs/msg/Image"
+    )
+
+
 def process_depth_image(proxy_writer: ProxyWriter, timestamp: int, msg) -> None:
     msg.header.frame_id = "camera_depth"
-    proxy_writer.write(
-        "/cam_depth/image_rect_raw", timestamp, msg, "sensor_msgs/msg/Image"
-    )
+    proxy_writer.write("/cam_depth/image_raw", timestamp, msg, "sensor_msgs/msg/Image")
 
 
 def process_color_image(proxy_writer: ProxyWriter, timestamp: int, msg) -> None:
@@ -129,10 +134,12 @@ def process(
     marked = set()
 
     topic_processors = {
-        "/camera/camera/depth/image_rect_raw": process_depth_image,
+        "/camera/camera/depth/image_rect_raw": process_depth_image,  # TODO: temporarily using rectified
+        "/camera/camera/aligned_depth_to_color/image_raw": process_depth_image_aligned,
         "/camera/camera/color/image_raw": process_color_image,
         "/gps/fix": GpsFixProcessor(origin, typestore),
         "/imu/data_raw": process_imu_data,
+        # "/odometer/filtered": process_odom_data,  # TODO: implement odometry processing
     }
 
     with Reader(input_bag_path) as reader, Writer(
@@ -222,4 +229,6 @@ if __name__ == "__main__":
             output_bag_path=output_bag_path,
             typestore=typestore,
             origin=origin,
+            output_format=output_format,
+            output_version=output_version,
         )

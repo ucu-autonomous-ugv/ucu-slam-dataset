@@ -1,0 +1,4 @@
+numpy
+rosbags
+pillow
+tqdm
