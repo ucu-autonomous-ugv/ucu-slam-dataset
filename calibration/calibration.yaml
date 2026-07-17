@@ -26,6 +26,13 @@ cameras:
     depth_scale: 1 # [meters]
 
 transformations:
+  # Temporal transformations:
+  dt_base_color: 0.0 # [s]
+  dt_color_depth: 0.0 # [s]
+  dt_base_gt: 0.0 # [s]
+  dt_base_wheel: 0.0 # [s]
+
+  # Spatial transformations:
   T_base_color: !!opencv-matrix
    rows: 4
    cols: 4
