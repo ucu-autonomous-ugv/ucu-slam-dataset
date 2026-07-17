@@ -1,0 +1,72 @@
+cameras:
+  rgb:
+    resolution: [640, 480] # [width, height] in [pixels]
+    camera_model: "pinhole"
+    distortion_model: "radtan" # radial-tangential
+    intrinsics: [0.0, 0.0, 0.0, 0.0] # [fx, fy, cx, cy] in [pixels]
+    distortion_coeffs: [0.0, 0.0, 0.0, 0.0, 0.0] # [k1, k2, p1, p2, k3]
+    fps: 15
+
+  depth:
+    resolution: [640, 480]
+    camera_model: "pinhole"
+    distortion_model: "radtan"
+    intrinsics: [0.0, 0.0, 0.0, 0.0]
+    distortion_coeffs: [0.0, 0.0, 0.0, 0.0, 0.0]
+    fps: 15
+    depth_scale: 1 # [meters]
+
+  depth_aligned:
+    resolution: [640, 480]
+    camera_model: "pinhole"
+    distortion_model: "radtan"
+    intrinsics: [0.0, 0.0, 0.0, 0.0]
+    distortion_coeffs: [0.0, 0.0, 0.0, 0.0, 0.0]
+    fps: 15
+    depth_scale: 1 # [meters]
+
+transformations:
+  T_base_color: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: d
+   data: [1.0, 0.0, 0.0, 0.0,
+         0.0, 1.0, 0.0, 0.0,
+         0.0, 0.0, 1.0, 0.0,
+         0.0, 0.0, 0.0, 1.0]
+
+  T_color_depth: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: d
+   data: [1.0, 0.0, 0.0, 0.0,
+         0.0, 1.0, 0.0, 0.0,
+         0.0, 0.0, 1.0, 0.0,
+         0.0, 0.0, 0.0, 1.0]
+
+  T_base_gt: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: d
+   data: [1.0, 0.0, 0.0, 0.0,
+         0.0, 1.0, 0.0, 0.0,
+         0.0, 0.0, 1.0, 0.0,
+         0.0, 0.0, 0.0, 1.0]
+
+  T_base_wheel: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: d
+   data: [1.0, 0.0, 0.0, 0.0,
+         0.0, 1.0, 0.0, 0.0,
+         0.0, 0.0, 1.0, 0.0,
+         0.0, 0.0, 0.0, 1.0]
+
+imu:
+  rate: 125 # [Hz]
+  accelerometer:
+    noise_density: 0 # σ_a [m/s^2/√Hz]
+    random_walk: 0 # σ_a^β [m/s^2/√Hz]
+  gyroscope:
+    noise_density: 0 # σ_ω [rad/s/√Hz]
+    random_walk: 0 # σ_ω^β [rad/s/√Hz]
