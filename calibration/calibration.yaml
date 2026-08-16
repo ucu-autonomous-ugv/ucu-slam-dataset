@@ -1,36 +1,35 @@
 cameras:
-  rgb:
+  color:
     resolution: [640, 480] # [width, height] in [pixels]
     camera_model: "pinhole"
     distortion_model: "radtan" # radial-tangential
-    intrinsics: [0.0, 0.0, 0.0, 0.0] # [fx, fy, cx, cy] in [pixels]
-    distortion_coeffs: [0.0, 0.0, 0.0, 0.0, 0.0] # [k1, k2, p1, p2, k3]
-    fps: 15
+    intrinsics: [597.55029769, 596.66924368, 312.00894432, 251.46243519] # [fx, fy, cx, cy] in [pixels]
+    distortion_coeffs: [0.13552311, -0.29198122, 0.00076296, 0.00006109] # [k1, k2, p1, p2]
+    fps: 30
 
   depth:
     resolution: [640, 480]
     camera_model: "pinhole"
-    distortion_model: "radtan"
-    intrinsics: [0.0, 0.0, 0.0, 0.0]
-    distortion_coeffs: [0.0, 0.0, 0.0, 0.0, 0.0]
-    fps: 15
-    depth_scale: 1 # [meters]
+    distortion_model: "none"
+    intrinsics: [384.009857178, 384.009857178, 321.232086182, 235.768280029]
+    fps: 30
+    depth_scale: 0.001 # [meters]
 
   depth_aligned:
     resolution: [640, 480]
     camera_model: "pinhole"
     distortion_model: "radtan"
-    intrinsics: [0.0, 0.0, 0.0, 0.0]
-    distortion_coeffs: [0.0, 0.0, 0.0, 0.0, 0.0]
-    fps: 15
-    depth_scale: 1 # [meters]
+    intrinsics: [597.55029769, 596.66924368, 312.00894432, 251.46243519]
+    distortion_coeffs: [0.13552311, -0.29198122, 0.00076296, 0.00006109]
+    fps: 30
+    depth_scale: 0.001 # [meters]
 
 transformations:
   # Temporal transformations:
   dt_base_color: 0.0 # [s]
   dt_color_depth: 0.0 # [s]
-  dt_base_gt: 0.0 # [s]
-  dt_base_wheel: 0.0 # [s]
+  dt_base_gnss: 0.0 # [s]
+  dt_base_imu: 0.0 # [s]
 
   # Spatial transformations:
   T_base_color: !!opencv-matrix
@@ -51,7 +50,7 @@ transformations:
          0.0, 0.0, 1.0, 0.0,
          0.0, 0.0, 0.0, 1.0]
 
-  T_base_gt: !!opencv-matrix
+  T_base_gnss: !!opencv-matrix
    rows: 4
    cols: 4
    dt: d
@@ -60,7 +59,7 @@ transformations:
          0.0, 0.0, 1.0, 0.0,
          0.0, 0.0, 0.0, 1.0]
 
-  T_base_wheel: !!opencv-matrix
+  T_base_imu: !!opencv-matrix
    rows: 4
    cols: 4
    dt: d

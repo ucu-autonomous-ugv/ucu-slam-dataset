@@ -4,12 +4,12 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Annotated
 
-import numpy as np
-from PIL import Image
 from rosbags.rosbag2 import Reader
 from rosbags.typesys import Stores, get_typestore
 from rosbags.typesys.store import Typestore
 from tqdm import tqdm
+
+from utils.images import msg_to_image
 
 
 class Processor(ABC):
@@ -20,35 +20,6 @@ class Processor(ABC):
     @abstractmethod
     def close(self):
         pass
-
-
-def image_from_msg(msg):
-    h = int(msg.height)
-    w = int(msg.width)
-    encoding = msg.encoding.lower()
-
-    if encoding in ("rgb8", "bgr8", "rgba8"):
-        arr = np.frombuffer(msg.data, dtype=np.uint8)
-        channels = 3 if encoding in ("rgb8", "bgr8") else 4
-
-    elif encoding in ("16uc1",):
-        dtype = ">u2" if msg.is_bigendian else "<u2"
-        arr = np.frombuffer(msg.data, dtype=dtype).astype(np.uint16)
-        channels = 1
-
-    else:
-        raise ValueError(f"Unsupported image encoding: {encoding}")
-
-    assert (
-        arr.size == h * w * channels
-    ), f"Data size {arr.size} does not match expected size {h * w * channels}"
-
-    arr = arr.reshape((h, w, channels)) if channels > 1 else arr.reshape((h, w))
-
-    if encoding == "bgr8":
-        arr = arr[:, :, ::-1]
-
-    return Image.fromarray(arr)
 
 
 class FileProcessor(Processor):
@@ -65,7 +36,7 @@ class FileProcessor(Processor):
         return_annotation = annotations.get("return", None)
         if return_annotation is not None and hasattr(return_annotation, "__metadata__"):
             return return_annotation.__metadata__[0]
-        
+
         return None
 
     def __call__(self, timestamp: int, msg) -> None:
@@ -123,7 +94,7 @@ class ImageProcessor(Processor):
         self.file = open(output_file_path, "w")
 
     def __call__(self, timestamp: int, msg) -> None:
-        image = image_from_msg(msg)
+        image = msg_to_image(msg)
         path = self.output_dir / (str(timestamp) + ".png")
         image.save(path, format="PNG")
 
@@ -150,10 +121,10 @@ def process(
     marked = set()
 
     topic_processors = {
-        "/cam_depth/image_raw": ImageProcessor(
+        "/cam_depth/image_rect_raw": ImageProcessor(
             output_path / "depth", output_path / "depth.txt"
         ),
-        "/cam_depth/image_aligned_raw": ImageProcessor(
+        "/cam_depth_aligned/image_raw": ImageProcessor(
             output_path / "depth_aligned", output_path / "depth_aligned.txt"
         ),
         "/cam_color/image_raw": ImageProcessor(

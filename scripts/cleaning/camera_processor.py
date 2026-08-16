@@ -1,0 +1,119 @@
+from typing import Literal, NotRequired, TypedDict
+
+import numpy as np
+from rosbags.typesys.store import Typestore
+
+from cleaning.proxy_writer import ProxyWriter
+from cleaning.timestamp_processor import TimestampProcessor
+
+
+class CameraInfoDict(TypedDict):
+    resolution: tuple[int, int]
+    camera_model: Literal["pinhole"]
+    distortion_model: Literal["plumb_bob", "none"]
+    intrinsics: tuple[float, float, float, float]
+    distortion_coeffs: NotRequired[tuple[float, float, float, float]]
+    fps: float
+    depth_scale: NotRequired[float]
+
+
+class CameraProcessor:
+    def __init__(
+        self,
+        timestamp_processor: TimestampProcessor,
+        frame_id: str,
+        topic: str,
+        topic_camera_info: str,
+        camera_info: CameraInfoDict,
+        typestore: Typestore,
+    ):
+        self.typestore = typestore
+        self.frame_id = frame_id
+        self.topic = topic
+        self.topic_camera_info = topic_camera_info
+        self.camera_info = camera_info
+        self.timestamp_processor = timestamp_processor
+
+    def __call__(self, proxy_writer: ProxyWriter, msg) -> None:
+        CameraInfo = self.typestore.types["sensor_msgs/msg/CameraInfo"]
+        RegionOfInterest = self.typestore.types["sensor_msgs/msg/RegionOfInterest"]
+
+        msg.header.frame_id = self.frame_id
+        msg.header.stamp, timestamp = self.timestamp_processor(msg.header.stamp)
+        proxy_writer.write(self.topic, timestamp, msg, "sensor_msgs/msg/Image")
+
+        # This represents no ditortion (i.e. model == none)
+        distortion_model = "plumb_bob"
+        distortion_coeffs = [0.0, 0.0, 0.0, 0.0]
+
+        if self.camera_info["distortion_model"] == "plumb_bob":
+            distortion_model = "plumb_bob"
+            distortion_coeffs = list(self.camera_info["distortion_coeffs"])
+
+        msg_camera_info = CameraInfo(
+            header=msg.header,
+            height=self.camera_info["resolution"][1],
+            width=self.camera_info["resolution"][0],
+            distortion_model=distortion_model,
+            d=np.asarray(distortion_coeffs, dtype=np.float64),
+            k=np.asarray(
+                [
+                    self.camera_info["intrinsics"][0],
+                    0.0,
+                    self.camera_info["intrinsics"][2],
+                    0.0,
+                    self.camera_info["intrinsics"][1],
+                    self.camera_info["intrinsics"][3],
+                    0.0,
+                    0.0,
+                    1.0,
+                ],
+                dtype=np.float64,
+            ),
+            r=np.asarray(
+                [
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                ],
+                dtype=np.float64,
+            ),
+            p=np.asarray(
+                [
+                    self.camera_info["intrinsics"][0],
+                    0.0,
+                    self.camera_info["intrinsics"][2],
+                    0.0,
+                    0.0,
+                    self.camera_info["intrinsics"][1],
+                    self.camera_info["intrinsics"][3],
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                ],
+                dtype=np.float64,
+            ),
+            binning_x=0,
+            binning_y=0,
+            roi=RegionOfInterest(
+                x_offset=0,
+                y_offset=0,
+                height=self.camera_info["resolution"][1],
+                width=self.camera_info["resolution"][0],
+                do_rectify=False,
+            ),
+        )
+        proxy_writer.write(
+            self.topic_camera_info,
+            timestamp,
+            msg_camera_info,
+            "sensor_msgs/msg/CameraInfo",
+        )
