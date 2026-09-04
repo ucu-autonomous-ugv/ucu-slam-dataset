@@ -17,6 +17,7 @@ class GnssProcessor:
         topic_pose: str,
         topic_tf: str,
         typestore: Typestore,
+        proxy_writer: ProxyWriter | None = None,
     ):
         self.typestore = typestore
         self.groundtruth_processor = groundtruth_processor
@@ -26,6 +27,7 @@ class GnssProcessor:
         self.topic_gnss = topic_gnss
         self.topic_pose = topic_pose
         self.topic_tf = topic_tf
+        self.proxy_writer = proxy_writer
 
         self.Header = self.typestore.types["std_msgs/msg/Header"]
         self.PoseWithCovarianceStamped = self.typestore.types[
@@ -44,10 +46,12 @@ class GnssProcessor:
         ]
         self.TFMessage = self.typestore.types["tf2_msgs/msg/TFMessage"]
 
-    def __call__(self, proxy_writer: ProxyWriter, msg) -> None:
+    def __call__(self, msg) -> None:
         msg.header.frame_id = self.frame_id
         msg.header.stamp, timestamp = self.timestamp_processor(msg.header.stamp)
-        proxy_writer.write(self.topic_gnss, timestamp, msg, "sensor_msgs/msg/NavSatFix")
+        self.proxy_writer.write(
+            self.topic_gnss, timestamp, msg, "sensor_msgs/msg/NavSatFix"
+        )
 
         latitude = msg.latitude
         longitude = msg.longitude
@@ -77,7 +81,7 @@ class GnssProcessor:
                 covariance=covariance,
             ),
         )
-        proxy_writer.write(
+        self.proxy_writer.write(
             self.topic_pose,
             timestamp,
             msg_pose,
@@ -98,6 +102,9 @@ class GnssProcessor:
                 )
             ]
         )
-        proxy_writer.write(
+        self.proxy_writer.write(
             self.topic_tf, timestamp, msg_transformation, "tf2_msgs/msg/TFMessage"
         )
+
+    def close(self) -> None:
+        pass

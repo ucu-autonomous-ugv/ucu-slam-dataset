@@ -3,8 +3,10 @@ from typing import Literal, NotRequired, TypedDict
 import numpy as np
 from rosbags.typesys.store import Typestore
 
+from cleaning.blur_processor import BlurProcessor
 from cleaning.proxy_writer import ProxyWriter
 from cleaning.timestamp_processor import TimestampProcessor
+from utils.images import array_to_msg, msg_to_array
 
 
 class CameraInfoDict(TypedDict):
@@ -23,9 +25,12 @@ class CameraProcessor:
         timestamp_processor: TimestampProcessor,
         frame_id: str,
         topic: str,
-        topic_camera_info: str,
-        camera_info: CameraInfoDict,
         typestore: Typestore,
+        topic_camera_info: str | None = None,
+        camera_info: CameraInfoDict | None = None,
+        blur_processor: BlurProcessor | None = None,
+        proxy_writer: ProxyWriter | None = None,
+        blur_batch_size: int = 8,
     ):
         self.typestore = typestore
         self.frame_id = frame_id
@@ -33,14 +38,21 @@ class CameraProcessor:
         self.topic_camera_info = topic_camera_info
         self.camera_info = camera_info
         self.timestamp_processor = timestamp_processor
+        self.blur_processor = blur_processor
+        self.proxy_writer = proxy_writer
+        self.blur_batch_size = blur_batch_size
+        self._pending_msgs: list = []
 
-    def __call__(self, proxy_writer: ProxyWriter, msg) -> None:
+    def _write_msg(self, msg) -> None:
         CameraInfo = self.typestore.types["sensor_msgs/msg/CameraInfo"]
         RegionOfInterest = self.typestore.types["sensor_msgs/msg/RegionOfInterest"]
 
         msg.header.frame_id = self.frame_id
         msg.header.stamp, timestamp = self.timestamp_processor(msg.header.stamp)
-        proxy_writer.write(self.topic, timestamp, msg, "sensor_msgs/msg/Image")
+        self.proxy_writer.write(self.topic, timestamp, msg, "sensor_msgs/msg/Image")
+
+        if self.topic_camera_info is None or self.camera_info is None:
+            return
 
         # This represents no ditortion (i.e. model == none)
         distortion_model = "plumb_bob"
@@ -111,9 +123,46 @@ class CameraProcessor:
                 do_rectify=False,
             ),
         )
-        proxy_writer.write(
+        self.proxy_writer.write(
             self.topic_camera_info,
             timestamp,
             msg_camera_info,
             "sensor_msgs/msg/CameraInfo",
         )
+
+    def _flush_pending(self) -> None:
+        if not self._pending_msgs:
+            return
+
+        pending_msgs = self._pending_msgs
+        self._pending_msgs = []
+
+        if self.blur_processor is None:
+            for msg in pending_msgs:
+                self._write_msg(msg)
+            return
+
+        bgr_arrs = [msg_to_array(msg, is_bgr=True) for msg in pending_msgs]
+        blurred_arrs = self.blur_processor.blur_batch(bgr_arrs)
+
+        for original_msg, blurred_arr in zip(pending_msgs, blurred_arrs):
+            blurred_msg = array_to_msg(
+                blurred_arr,
+                encoding=original_msg.encoding,
+                typestore=self.typestore,
+                is_bgr=True,
+            )
+            blurred_msg.header = original_msg.header
+            self._write_msg(blurred_msg)
+
+    def __call__(self, msg) -> None:
+        if self.blur_processor is None:
+            self._write_msg(msg)
+            return
+
+        self._pending_msgs.append(msg)
+        if len(self._pending_msgs) >= self.blur_batch_size:
+            self._flush_pending()
+
+    def close(self) -> None:
+        self._flush_pending()

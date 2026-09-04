@@ -25,3 +25,6 @@ class ProxyWriter:
         self.writer.write(
             connection, timestamp, self.typestore.serialize_cdr(msg, msgtype)
         )
+
+    def close(self) -> None:
+        pass

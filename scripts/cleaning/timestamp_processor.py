@@ -19,3 +19,6 @@ class TimestampProcessor:
             ),
             timestamp,
         )
+
+    def close(self) -> None:
+        pass

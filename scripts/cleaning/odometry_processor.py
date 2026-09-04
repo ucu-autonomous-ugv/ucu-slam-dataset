@@ -13,6 +13,7 @@ class OdometryProcessor:
         topic: str,
         topic_tf: str,
         typestore: Typestore,
+        proxy_writer: ProxyWriter | None = None,
     ):
         self.typestore = typestore
         self.odom_frame_id = odom_frame_id
@@ -20,6 +21,7 @@ class OdometryProcessor:
         self.topic = topic
         self.topic_tf = topic_tf
         self.timestamp_processor = timestamp_processor
+        self.proxy_writer = proxy_writer
 
         self.Header = self.typestore.types["std_msgs/msg/Header"]
         self.Vector3 = self.typestore.types["geometry_msgs/msg/Vector3"]
@@ -30,11 +32,11 @@ class OdometryProcessor:
         self.TFMessage = self.typestore.types["tf2_msgs/msg/TFMessage"]
         self.Quaternion = self.typestore.types["geometry_msgs/msg/Quaternion"]
 
-    def __call__(self, proxy_writer: ProxyWriter, msg) -> None:
+    def __call__(self, msg) -> None:
         msg.header.frame_id = self.odom_frame_id
         msg.header.stamp, timestamp = self.timestamp_processor(msg.header.stamp)
         msg.child_frame_id = self.base_frame_id
-        proxy_writer.write(self.topic, timestamp, msg, "nav_msgs/msg/Odometry")
+        self.proxy_writer.write(self.topic, timestamp, msg, "nav_msgs/msg/Odometry")
 
         p = msg.pose.pose.position
         q = msg.pose.pose.orientation
@@ -58,4 +60,9 @@ class OdometryProcessor:
             ]
         )
 
-        proxy_writer.write(self.topic_tf, timestamp, tf_msg, "tf2_msgs/msg/TFMessage")
+        self.proxy_writer.write(
+            self.topic_tf, timestamp, tf_msg, "tf2_msgs/msg/TFMessage"
+        )
+
+    def close(self) -> None:
+        pass

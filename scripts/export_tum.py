@@ -132,7 +132,6 @@ def process(
         ),
         "/pose": FileProcessor(process_pose, output_path / "groundtruth.txt"),
         "/imu": FileProcessor(process_imu, output_path / "imu.txt"),
-        # "/odom": FileProcessor(process_odometry, output_path / "odom.txt"), # TODO: Implement odometry processing if needed
     }
 
     try:

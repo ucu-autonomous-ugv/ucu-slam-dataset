@@ -1,32 +1,32 @@
 cameras:
   color:
     resolution: [640, 480] # [width, height] in [pixels]
-    camera_model: "pinhole"
-    distortion_model: "radtan" # radial-tangential
-    intrinsics: [597.55029769, 596.66924368, 312.00894432, 251.46243519] # [fx, fy, cx, cy] in [pixels]
-    distortion_coeffs: [0.13552311, -0.29198122, 0.00076296, 0.00006109] # [k1, k2, p1, p2]
+    camera_model: pinhole
+    distortion_model: radtan # radial-tangential
+    intrinsics: [601.1733383650345, 600.2663647399592, 314.0164516341506, 250.039444021504] # [fx, fy, cx, cy] in [pixels]
+    distortion_coeffs: [0.139268662386042, -0.30741279731381366, 0.0007272799549728076, 0.0006655761403425819] # [k1, k2, p1, p2]
     fps: 30
 
   depth:
     resolution: [640, 480]
-    camera_model: "pinhole"
-    distortion_model: "none"
+    camera_model: pinhole
+    distortion_model: none
     intrinsics: [384.009857178, 384.009857178, 321.232086182, 235.768280029]
     fps: 30
     depth_scale: 0.001 # [meters]
 
   depth_aligned:
     resolution: [640, 480]
-    camera_model: "pinhole"
-    distortion_model: "radtan"
-    intrinsics: [597.55029769, 596.66924368, 312.00894432, 251.46243519]
-    distortion_coeffs: [0.13552311, -0.29198122, 0.00076296, 0.00006109]
+    camera_model: pinhole
+    distortion_model: radtan
+    intrinsics: [601.1733383650345, 600.2663647399592, 314.0164516341506, 250.039444021504]
+    distortion_coeffs: [0.139268662386042, -0.30741279731381366, 0.0007272799549728076, 0.0006655761403425819]
     fps: 30
     depth_scale: 0.001 # [meters]
 
 transformations:
   # Temporal transformations:
-  dt_base_color: 0.0 # [s]
+  dt_base_color: 0.014895025043715156 # [s]
   dt_color_depth: 0.0 # [s]
   dt_base_gnss: 0.0 # [s]
   dt_base_imu: 0.0 # [s]
@@ -36,9 +36,9 @@ transformations:
    rows: 4
    cols: 4
    dt: d
-   data: [1.0, 0.0, 0.0, 0.0,
-         0.0, 1.0, 0.0, 0.0,
-         0.0, 0.0, 1.0, 0.0,
+   data: [-0.9993405708143623, 0.02320852031476546, 0.027924686376516957, 0.050964124466524936,
+         0.02794872313159668, 0.0007119015586896599, 0.9996091046361509, 0.049003980744463355,
+         0.023179568584015226, 0.9997303925463971, -0.0013600806185959985, -0.004907455166771748,
          0.0, 0.0, 0.0, 1.0]
 
   T_color_depth: !!opencv-matrix
@@ -71,8 +71,8 @@ transformations:
 imu:
   rate: 125 # [Hz]
   accelerometer:
-    noise_density: 0 # σ_a [m/s^2/√Hz]
-    random_walk: 0 # σ_a^β [m/s^2/√Hz]
+    noise_density: 0.002046311532059803  # σ_a [m/s^2/√Hz]
+    random_walk: 3.2793722442857696e-05 # σ_a^β [m/s^2/√Hz]
   gyroscope:
-    noise_density: 0 # σ_ω [rad/s/√Hz]
-    random_walk: 0 # σ_ω^β [rad/s/√Hz]
+    noise_density: 0.0004491777211520533 # σ_ω [rad/s/√Hz]
+    random_walk: 1.4932100720276404e-05 # σ_ω^β [rad/s/√Hz]

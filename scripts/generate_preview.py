@@ -37,9 +37,14 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("input_bag_path", type=Path, help="Path to the cleaned bag")
     parser.add_argument(
-        "output_dir",
+        "--output-preview-path",
         type=Path,
-        help="Directory where preview_color.png and preview_trajectory.png are written",
+        help="Path to save the median color frame preview PNG",
+    )
+    parser.add_argument(
+        "--output-trajectory-path",
+        type=Path,
+        help="Path to save the GNSS trajectory preview PNG",
     )
     parser.add_argument(
         "--origin",
@@ -54,6 +59,12 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=10.0,
         help="Time interval between motion arrows on the GNSS trajectory",
+    )
+    parser.add_argument(
+        "--preview-at",
+        type=float,
+        default=0.5,
+        help="Time from 0 to 1 to extract the preview frame (default: 0.5)",
     )
     return parser.parse_args()
 
@@ -95,30 +106,44 @@ def lat_to_mercator_y_m(lat: float) -> float:
     return 6378137.0 * math.log(math.tan(math.pi / 4.0 + math.radians(lat) / 2.0))
 
 
-def add_padding(
+def calculate_limits(
     min_lon: float,
     max_lon: float,
     min_lat: float,
     max_lat: float,
     padding: float,
+    ratio_width: float,
+    ratio_height: float,
 ) -> tuple[float, float, float, float]:
-    lon_span = max_lon - min_lon
-    lat_span = max_lat - min_lat
-
-    if lon_span == 0:
-        lon_span = 1e-4
-    if lat_span == 0:
-        lat_span = 1e-4
+    lon_span = max(max_lon - min_lon, 1e-4)
+    lat_span = max(max_lat - min_lat, 1e-4)
 
     lon_pad = lon_span * padding
     lat_pad = lat_span * padding
 
-    return (
-        min_lon - lon_pad,
-        max_lon + lon_pad,
-        min_lat - lat_pad,
-        max_lat + lat_pad,
-    )
+    min_lon -= lon_pad
+    max_lon += lon_pad
+    min_lat -= lat_pad
+    max_lat += lat_pad
+
+    lon_span = max_lon - min_lon
+    lat_span = max_lat - min_lat
+
+    current_ratio = lon_span / lat_span
+    target_ratio = ratio_width / ratio_height
+
+    if current_ratio > target_ratio:
+        target_lat_span = lon_span / target_ratio
+        lat_center = (min_lat + max_lat) / 2.0
+        min_lat = lat_center - target_lat_span / 2.0
+        max_lat = lat_center + target_lat_span / 2.0
+    else:
+        target_lon_span = lat_span * target_ratio
+        lon_center = (min_lon + max_lon) / 2.0
+        min_lon = lon_center - target_lon_span / 2.0
+        max_lon = lon_center + target_lon_span / 2.0
+
+    return min_lon, max_lon, min_lat, max_lat
 
 
 def choose_zoom(
@@ -285,12 +310,14 @@ def draw_map_with_trajectory(
     lats = [p.latitude for p in points]
     lons = [p.longitude for p in points]
 
-    min_lon, max_lon, min_lat, max_lat = add_padding(
-        min(min(lons), origin_lon),
-        max(max(lons), origin_lon),
-        min(min(lats), origin_lat),
-        max(max(lats), origin_lat),
-        0.1,
+    min_lon, max_lon, min_lat, max_lat = calculate_limits(
+        min(lons),
+        max(lons),
+        min(lats),
+        max(lats),
+        padding=0.1,
+        ratio_width=4,
+        ratio_height=3,
     )
 
     fig_width, fig_height, dpi = 10.0, 10.0, 160
@@ -419,36 +446,38 @@ def draw_map_with_trajectory(
 def main() -> None:
     args = parse_args()
     input_bag_path = args.input_bag_path
-    output_dir = args.output_dir
     origin = tuple(args.origin)
     typestore = get_typestore(Stores.ROS2_JAZZY)
 
-    output_dir.mkdir(parents=True, exist_ok=True)
-    color_output = output_dir / "preview_color.png"
-    trajectory_output = output_dir / "preview_trajectory.png"
-
     color_count, gnss_points = collect_preview_data(input_bag_path, typestore)
+    gnss_points.sort(key=lambda p: p.timestamp_ns)
 
-    if color_count == 0:
-        raise RuntimeError("No /cam_color/image_raw messages found in the cleaned bag")
-    if not gnss_points:
-        raise RuntimeError("No /gnss messages found in the cleaned bag")
+    if args.output_preview_path:
+        if color_count == 0:
+            raise RuntimeError(
+                "No /cam_color/image_raw messages found in the cleaned bag"
+            )
 
-    median_index = color_count // 2
-    median_image = extract_median_color_image(
-        input_bag_path=input_bag_path,
-        typestore=typestore,
-        color_index=median_index,
-    )
-    median_image.save(color_output, format="PNG")
-    print(f"Saved: {color_output}")
+        image_index = round(color_count * args.preview_at)
+        image = extract_median_color_image(
+            input_bag_path=input_bag_path,
+            typestore=typestore,
+            color_index=image_index,
+        )
+        image.save(args.output_preview_path, format="PNG")
+        print(f"Saved: {args.output_preview_path}")
 
-    draw_map_with_trajectory(
-        points=gnss_points,
-        origin=origin,
-        output_path=trajectory_output,
-        arrow_interval_sec=max(args.arrow_interval_sec, 0.1),
-    )
+    if args.output_trajectory_path:
+        if not gnss_points:
+            raise RuntimeError("No /gnss messages found in the cleaned bag")
+
+        draw_map_with_trajectory(
+            points=gnss_points,
+            origin=origin,
+            output_path=args.output_trajectory_path,
+            arrow_interval_sec=max(args.arrow_interval_sec, 0.1),
+        )
+        print(f"Saved: {args.output_trajectory_path}")
 
 
 if __name__ == "__main__":
