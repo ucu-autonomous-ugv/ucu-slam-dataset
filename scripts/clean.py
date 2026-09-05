@@ -46,7 +46,7 @@ def process(
             calibration_data = yaml.full_load(file)
 
         transformations = calibration_data["transformations"]
-        camera_infos = calibration_data["camera_infos"]
+        camera_infos = calibration_data["cameras"]
         should_publish_tf_static = True
     else:
         transformations = {
@@ -76,6 +76,9 @@ def process(
 
     blur_processor = None
     if face_model_path is not None and license_plate_model_path is not None:
+        print(
+            f"Initializing BlurProcessor with face model: {face_model_path}, license plate model: {license_plate_model_path}, device: {device}"
+        )
         blur_processor = BlurProcessor(
             face_model_path=face_model_path,
             license_plate_model_path=license_plate_model_path,
