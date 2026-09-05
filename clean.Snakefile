@@ -25,7 +25,7 @@ rule clean_sequence:
         face_model = "models/ego_blur_face_gen2.jit",
         license_plate_model = "models/ego_blur_lp_gen2.jit",
     output:
-        clean_dir = directory("data/clean/{seq}")
+        clean_dir = temp(directory("data/clean/{seq}"))
     resources:
         disk_mb = 25_000,
         gpu = 1,
