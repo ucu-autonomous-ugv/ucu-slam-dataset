@@ -11,6 +11,7 @@ PREVIEW_FLAGS = {
 
 HF_REPO = "ucu-autonomous-ugv/ucu-slam-dataset-v1"
 
+
 rule all:
     input:
         expand("data/hf-logs/{seq}.txt", seq=SEQUENCES),
@@ -19,13 +20,13 @@ rule all:
 
 rule clean_sequence:
     input:
-        raw_dir = "data/raw/{seq}"
+        raw_dir="data/raw/{seq}",
     output:
-        clean_dir = directory("data/clean/{seq}")
+        clean_dir=directory("data/clean/{seq}"),
     resources:
-        disk_mb = 25_000
+        disk_mb=25_000,
     params:
-        flags = lambda wildcards: CLEAN_FLAGS.get(wildcards.seq, "")
+        flags=lambda wildcards: CLEAN_FLAGS.get(wildcards.seq, ""),
     shell:
         """
         echo 'Cleaning {wildcards.seq} with flags: {params.flags}'
@@ -35,24 +36,24 @@ rule clean_sequence:
 
 rule convert_ros1:
     input:
-        clean_dir = "data/clean/{seq}"
+        clean_dir="data/clean/{seq}",
     output:
-        ros1_bag = "data/ros1/{seq}.bag"
+        ros1_bag="data/ros1/{seq}.bag",
     resources:
-        disk_mb = 25_000
+        disk_mb=25_000,
     shell:
         "rosbags-convert --src {input.clean_dir} --dst {output.ros1_bag}"
 
 
 rule generate_preview:
     input:
-        clean_dir = "data/clean/{seq}"
+        clean_dir="data/clean/{seq}",
     output:
-        preview = "data/previews/{seq}-preview.png"
+        preview="data/previews/{seq}-preview.png",
     resources:
-        disk_mb = 25_000
+        disk_mb=25_000,
     params:
-        flags = lambda wildcards: PREVIEW_FLAGS.get(wildcards.seq, "")
+        flags=lambda wildcards: PREVIEW_FLAGS.get(wildcards.seq, ""),
     shell:
         """
         echo 'Generating preview for {wildcards.seq} with flags: {params.flags}'
@@ -62,14 +63,14 @@ rule generate_preview:
 
 rule push_hf:
     input:
-        clean_dir = "data/clean/{seq}",
-        ros1_bag = "data/ros1/{seq}.bag",
+        clean_dir="data/clean/{seq}",
+        ros1_bag="data/ros1/{seq}.bag",
     output:
-        hf_log = "data/hf-logs/{seq}.txt"
+        hf_log="data/hf-logs/{seq}.txt",
     resources:
-        disk_mb = 25_000
+        disk_mb=25_000,
     params:
-        hf_repo = HF_REPO
+        hf_repo=HF_REPO,
     shell:
         """
         HF_HUB_DISABLE_XET=1 hf upload {params.hf_repo} {input.clean_dir} /{wildcards.seq} --repo-type=dataset
