@@ -3,3 +3,7 @@ rosbags
 pillow
 tqdm
 pyyaml
+snakemake
+torch
+matplotlib
+egoblur
