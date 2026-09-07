@@ -12,6 +12,11 @@ from tqdm import tqdm
 from utils.images import msg_to_image
 
 
+def format_timestamp(timestamp_ns: int) -> float:
+    timestamp_s = timestamp_ns / 1_000_000_000
+    return f"{timestamp_s:.9f}"  # Format to 9 decimal places for nanosecond precision
+
+
 class Processor(ABC):
     @abstractmethod
     def __call__(self, timestamp: int, msg) -> None:
@@ -58,7 +63,7 @@ def process_pose(timestamp: int, msg) -> Annotated[list, "timestamp x y z qx qy 
     orientation = msg.pose.pose.orientation
 
     return [
-        timestamp,
+        format_timestamp(timestamp),
         position.x,
         position.y,
         position.z,
@@ -74,7 +79,7 @@ def process_imu(timestamp: int, msg) -> Annotated[list, "timestamp ax ay az gx g
     angular_velocity = msg.angular_velocity
 
     return [
-        timestamp,
+        format_timestamp(timestamp),
         linear_acceleration.x,
         linear_acceleration.y,
         linear_acceleration.z,
@@ -86,6 +91,7 @@ def process_imu(timestamp: int, msg) -> Annotated[list, "timestamp ax ay az gx g
 
 class ImageProcessor(Processor):
     def __init__(self, output_dir: Path, output_file_path: Path):
+        self.timestamp_to_path = {}
         self.output_dir = output_dir
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.output_file_path = output_file_path
@@ -105,12 +111,35 @@ class ImageProcessor(Processor):
         path_txt = path.relative_to(
             self.output_file_path.parent,
             walk_up=True,
-        )  # Get relative path to the output file
-        self.file.write(f"{timestamp} {path_txt}\n")
+        )  # Get relative path to the output directory
+        self.timestamp_to_path[timestamp] = path_txt
+        self.file.write(f"{format_timestamp(timestamp)} {path_txt}\n")
 
     def close(self):
         if not self.file.closed:
             self.file.close()
+
+
+def process_associations(
+    output_file_path: Path,
+    color_processor: ImageProcessor,
+    depth_processor: ImageProcessor,
+) -> None:
+    color_timestamps = set(color_processor.timestamp_to_path.keys())
+    depth_timestamps = set(depth_processor.timestamp_to_path.keys())
+    common_timestamps = color_timestamps.intersection(depth_timestamps)
+
+    print(
+        f"Found {len(common_timestamps)} common timestamps for color {len(color_timestamps)} color and {len(depth_timestamps)} depth images."
+    )
+
+    with open(output_file_path, "w") as file:
+        file.write("#color_timestamp color_path depth_timestamp depth_path\n")
+        for timestamp in sorted(common_timestamps):
+            timestamp_string = format_timestamp(timestamp)
+            file.write(
+                f"{timestamp_string} {color_processor.timestamp_to_path[timestamp]} {timestamp_string} {depth_processor.timestamp_to_path[timestamp]}\n"
+            )
 
 
 def process(
@@ -122,10 +151,10 @@ def process(
 
     topic_processors = {
         "/cam_depth/image_rect_raw": ImageProcessor(
-            output_path / "depth", output_path / "depth.txt"
+            output_path / "depth_not_aligned", output_path / "depth_not_aligned.txt"
         ),
         "/cam_depth_aligned/image_raw": ImageProcessor(
-            output_path / "depth_aligned", output_path / "depth_aligned.txt"
+            output_path / "depth", output_path / "depth.txt"
         ),
         "/cam_color/image_raw": ImageProcessor(
             output_path / "rgb", output_path / "rgb.txt"
@@ -147,6 +176,18 @@ def process(
 
                 marked.add(connection.topic)
                 processor(timestamp, msg)
+
+        process_associations(
+            output_path / "associations.txt",
+            color_processor=topic_processors["/cam_color/image_raw"],
+            depth_processor=topic_processors["/cam_depth_aligned/image_raw"],
+        )
+
+        process_associations(
+            output_path / "associations_not_aligned.txt",
+            color_processor=topic_processors["/cam_color/image_raw"],
+            depth_processor=topic_processors["/cam_depth/image_rect_raw"],
+        )
     finally:
         for processor in topic_processors.values():
             processor.close()
